@@ -1,12 +1,41 @@
-name: Test Telegram
+name: Grow a Garden 2 Real Stock
 
 on:
+  schedule:
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
-  test:
+  send:
     runs-on: ubuntu-latest
     steps:
-      - name: Send test
+      - name: Get stock and send to Telegram
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
         run: |
-          curl -v -X GET "https://api.telegram.org/bot8936789193:AAF1ZwRjlIzXDTbYhRIrVjAnVBxfUFKyuNU/sendMessage?chat_id=-1002693821872&text=Hello%20from%20GitHub"
+          # 1. Получаем данные из API
+          DATA=$(curl -s "https://api.joshlei.com/v2/growagarden/info/")
+          
+          # 2. Парсим семена, которые есть в наличии (stock > 0)
+          SEEDS=$(echo "$DATA" | jq -r '
+            .seed_shop 
+            | to_entries 
+            | map(select(.value.stock > 0)) 
+            | map("• " + (.key | gsub("_"; " ") | ascii_upcase) + " — " + (.value.price | tostring) + " Sheckles")
+            | join("\n")
+          ')
+          
+          # 3. Если ничего не нашли — отправляем заглушку
+          if [ -z "$SEEDS" ]; then
+            SEEDS="*В Seed Shop пусто или ошибка API*"
+          fi
+          
+          # 4. Формируем сообщение
+          MESSAGE="🌱 *GROW A GARDEN 2 — SEED SHOP* 🌱%0A%0A${SEEDS}%0A%0A🕐 *$(date '+%H:%M:%S')*%0A🔄 Следующее обновление через 5 минут"
+          
+          # 5. Отправляем в Telegram
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -d chat_id="${CHAT_ID}" \
+            -d text="${MESSAGE}" \
+            -d parse_mode="Markdown"
