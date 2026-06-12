@@ -1,0 +1,38 @@
+name: Grow a Garden 2 Live Stock
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # Автоматически каждые 5 минут
+  workflow_dispatch:        # Чтобы можно было запустить вручную кнопкой
+
+jobs:
+  send-stock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Stock and Send
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: |
+          # 1. Получаем HTML страницы с живым стоком
+          curl -s "https://growagardenstock.info/stock" -o stock.html
+          
+          # 2. Выдираем оттуда названия семян и цены (грубо, но работает)
+          echo "🌱 *Grow a Garden 2 — Seed Shop*" > message.txt
+          echo "" >> message.txt
+          grep -oP '(?<=<div class="item-name">)[^<]*' stock.html | head -5 | while read name; do
+            price=$(grep -A1 "$name" stock.html | grep -oP '(?<=<span class="price">)[^<]*')
+            echo "• $name — $price" >> message.txt
+          done
+          
+          # 3. Добавляем время обновления
+          echo "" >> message.txt
+          echo "🕐 Обновлено: $(date +'%H:%M:%S')" >> message.txt
+          echo "🔄 Следующее через 5 минут" >> message.txt
+          
+          # 4. Отправляем в Telegram канал
+          TEXT=$(cat message.txt | sed ':a;N;$!ba;s/\n/%0A/g')
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -d chat_id="${CHAT_ID}" \
+            -d text="${TEXT}" \
+            -d parse_mode="Markdown"
