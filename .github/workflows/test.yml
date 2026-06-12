@@ -1,0 +1,12 @@
+name: Test Telegram
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send test
+        run: |
+          curl -v -X GET "https://api.telegram.org/bot8936789193:AAF1ZwRjlIzXDTbYhRIrVjAnVBxfUFKyuNU/sendMessage?chat_id=-1002693821872&text=Hello%20from%20GitHub"
